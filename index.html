@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>몸으로 길 찾기</title>
+  <!-- 시안 B2(바닷가 섬) 화면. 앱 동작은 index.html 과 같다 -->
+  <link href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/style-b2.css?v=1.4.2">
+  <!-- 관절 추정 라이브러리 버전 고정 (F-1). 앱 파일 주소의 ?v= 는 APP_VERSION과 같이 올린다 -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="deco" id="decoL" style="left:34px;top:150px"></div>
+  <div class="deco" id="decoL2" style="left:92px;top:420px"></div>
+  <div class="deco" id="decoR" style="right:36px;top:170px"></div>
+  <div class="deco" id="decoR2" style="right:92px;top:430px"></div>
+
+  <header id="top">
+    <span class="ver" id="version"></span>
+    <span class="pill" id="stage-type"></span>
+    <span class="plank" id="stage-num"></span>
+    <button class="btn" id="btn-teacher" type="button" aria-expanded="false" aria-controls="teacher-menu">교사 ☰</button>
+  </header>
+
+  <main id="layout">
+    <section id="me">
+      <div id="cam-box" class="frame">
+        <div id="cam-in">
+          <div id="sil" aria-hidden="true"></div>
+          <video id="cam-video" playsinline muted></video>
+          <canvas id="cam-canvas" width="640" height="480"></canvas>
+          <div id="badge" class="chipx badge"><i></i>카메라를 켜는 중이에요</div>
+          <div id="personal-chip" class="chipx" hidden>✦ 내 동작으로 알아봐요</div>
+          <div id="candidate">
+            <span id="cand-pic"></span>
+            <div><div class="lb" id="cand-label"></div><div class="gauge" id="cand-gauge"><b></b></div></div>
+          </div>
+          <div id="cam-off-cover" data-crt-keep hidden><span data-ic="cam" data-n="2"></span><span id="cover-text">잠깐 쉬는 중</span></div>
+        </div>
+        <div class="rope"></div>
+      </div>
+      <div id="child-controls">
+        <button id="btn-pause" class="btn big a1" type="button">입력 멈춤</button>
+        <button id="btn-camera" class="btn big a2" type="button">카메라 끄기</button>
+        <button id="btn-personal" class="btn big a3" type="button">내 동작 알려 주기</button>
+      </div>
+    </section>
+
+    <section id="code">
+      <div id="maze-box" class="frame"><canvas id="maze" width="240" height="240" aria-label="5×5 섬 미로"></canvas><div id="maze-say" aria-live="polite" hidden></div><div class="rope"></div></div>
+      <div id="blocks" aria-label="블록"></div>
+
+      <!-- 연습·맞추기·요약은 미로 자리에 띄워 카메라(내 몸)를 가리지 않는다 -->
+      <div id="overlay" hidden>
+        <div id="ov-pic"></div>
+        <div class="dlg">
+          <div class="tag"><span data-ic="shell" data-n="1"></span>안내</div>
+          <div class="dtitle" id="ov-title"></div>
+          <div class="dtext" id="ov-text" aria-live="polite"></div>
+          <div class="gauge" id="ov-gauge" hidden><b></b></div>
+          <div id="ov-sum" hidden>
+            <div class="tl-h">카메라가 읽은 동작 · 그림을 누르면 알려 줘요</div>
+            <div class="tl" id="ov-tl"></div>
+            <div class="legend"><span>흐린 그림 = 지운 블록</span><span>점선 = 넣지 않음</span></div>
+            <div class="why empty" id="ov-why"></div>
+          </div>
+          <div id="ov-buttons"></div>
+          <i class="next" aria-hidden="true"></i>
+        </div>
+      </div>
+    </section>
+
+    <section id="guide" aria-label="동작 안내"></section>
+  </main>
+
+  <aside id="teacher-menu" hidden aria-label="교사용">
+    <h3><span data-ic="leaf" data-n="1"></span>교사용</h3>
+    <button class="btn ti" id="t-run" type="button"><span class="lb"><span data-ic="play" data-n="1"></span>시작</span><kbd>Space</kbd></button>
+    <button class="btn ti" id="t-clear" type="button"><span class="lb"><span data-ic="broom" data-n="1"></span>모두 지우기</span><kbd>C</kbd></button>
+    <button class="btn ti" id="t-prev" type="button"><span class="lb"><span data-ic="prev" data-n="1"></span>이전 단계</span><kbd>←</kbd></button>
+    <button class="btn ti" id="t-next" type="button"><span class="lb"><span data-ic="next" data-n="1"></span>다음 단계</span><kbd>→</kbd></button>
+    <button class="btn ti" id="t-tutorial" type="button"><span class="lb">연습 다시</span><kbd>T</kbd></button>
+    <button class="btn ti" id="t-personal" type="button"><span class="lb">내 동작 알려 주기</span><kbd>P</kbd></button>
+    <button class="btn ti" id="t-personal-reset" type="button"><span class="lb">원래대로</span><kbd>R</kbd></button>
+    <button class="btn ti" id="t-log" type="button"><span class="lb"><span data-ic="disk" data-n="1"></span>기록 저장</span><kbd>S</kbd></button>
+    <button class="btn ti" id="t-close" type="button"><span class="lb">닫기</span><kbd>Esc</kbd></button>
+  </aside>
+
+  <script src="js/stages.js?v=1.4.2"></script>
+  <script src="js/gestures.js?v=1.4.2"></script>
+  <script src="js/personal.js?v=1.4.2"></script>
+  <script src="js/pictograms.js?v=1.4.2"></script>
+  <script src="js/why.js?v=1.4.2"></script>
+  <script src="js/theme-b2.js?v=1.4.2"></script>
+  <script src="js/app-b2.js?v=1.4.2"></script>
+</body>
+</html>

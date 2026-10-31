@@ -1,0 +1,251 @@
+/* 시안 B2 (바닷가 섬) 화면: 위쪽은 mockups/mockup-B2-map.html 의 스타일을 그대로 옮긴 것, 맨 아래 덧붙임이 실제 앱 요소를 맞춘다 */
+:root{
+  --ink:#6b4a32; --tx:#6b5a48; --gr:#3fae49; --sk:#2a9fd6; --or:#ee8c1e; --wood:#b98550; --wood-l:#d6a46c; --wood-d:#7d5232;
+  --cream:#fff4d6; --sand:#f3dfa6; --sand-d:#d9be78;
+  --sky:#7cc8f0; --sky-d:#3d8fe0; --sky-dd:#25609e; --mint:#a8e6c8; --mint-d:#5fb894;
+  --leaf:#4cae5a; --leaf-d:#2f8f4a; --orange:#f39a42; --orange-d:#b85a10;
+  /* one logical pixel = --px = s / devicePixelRatio CSS px (s = integer device px), set by layout() */
+  --px:2px; --b:calc(var(--px)*2); --b1:var(--px);
+  /* type scale: Galmuri11 at its design size multiples */
+  --f1:11px; --f2:22px; --f3:33px;
+  /* control scale */
+  --ctl:40px;           /* top-bar items, chips, menu items, dialog buttons */
+  --btn:64px;           /* child buttons */
+  --pad:16px; --icgap:8px;
+  --top-h:56px; --row:520px; --gap:12px;
+  --mz:calc(var(--px)*254);                 /* maze frame: 240 + 2*(2 border + 3 padding + 2 canvas border) */
+  --cardh:calc(var(--px)*53 + 34px);         /* guide card: figure 53 logical px + 22px label + paddings */
+  --wave:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='16' shape-rendering='crispEdges'%3E%3Cg fill='%23a9e3fa'%3E%3Crect x='5' y='2' width='6' height='1'/%3E%3Crect x='3' y='3' width='2' height='1'/%3E%3Crect x='11' y='3' width='2' height='1'/%3E%3Crect x='21' y='10' width='6' height='1'/%3E%3Crect x='19' y='11' width='2' height='1'/%3E%3Crect x='27' y='11' width='2' height='1'/%3E%3C/g%3E%3C/svg%3E");
+  --dots:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' shape-rendering='crispEdges'%3E%3Cg fill='%23e8d08c'%3E%3Crect x='3' y='4' width='1' height='1'/%3E%3Crect x='11' y='11' width='1' height='1'/%3E%3Crect x='7' y='14' width='1' height='1'/%3E%3Crect x='13' y='2' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+  --grain:repeating-linear-gradient(90deg,transparent 0 calc(var(--px)*28),rgba(58,42,30,.13) calc(var(--px)*28) calc(var(--px)*30));
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:var(--f2)/1.2 'Galmuri11',sans-serif;color:var(--tx);overflow:hidden;
+  background:var(--sand) var(--dots);background-size:calc(var(--px)*16) calc(var(--px)*16)}
+svg,canvas,img.px{image-rendering:pixelated;shape-rendering:crispEdges;display:block}
+img.px{flex:none;max-width:none}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+/* ---------- buttons (one scale: height token, padding 0 16, icon gap 8, 22px bold) ---------- */
+.btn{font:700 var(--f2)/1 'Galmuri11',sans-serif;color:var(--tx);background:var(--c,var(--cream));cursor:pointer;position:relative;
+  height:var(--h,var(--ctl));padding:0 var(--pad);border:var(--b) solid var(--ink);border-radius:14px;
+  box-shadow:0 calc(var(--px)*2) 0 var(--s,var(--sand-d)),0 calc(var(--px)*4) 0 var(--ink);
+  transform:translateY(0);transition:transform .05s steps(2),box-shadow .05s steps(2);
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--icgap);white-space:nowrap}
+.btn:active,.btn.pressed{transform:translateY(calc(var(--px)*2));box-shadow:0 0 0 var(--s,var(--sand-d)),0 calc(var(--px)*2) 0 var(--ink)}
+.btn:focus-visible,.card:focus-visible{outline:3px dashed var(--sky-dd);outline-offset:3px}
+.frame{background:var(--wood) var(--grain);border:var(--b) solid var(--ink);border-radius:18px;
+  box-shadow:0 calc(var(--px)*3) 0 var(--wood-d),0 calc(var(--px)*5) 0 var(--ink);position:relative}
+.rope{position:absolute;inset:var(--px);border:var(--b1) dotted #f1dca3;border-radius:15px;pointer-events:none}
+
+/* ---------- top bar: sea strip; stage indicators on the right ---------- */
+#top{height:var(--top-h);display:flex;align-items:center;gap:12px;padding:0 16px calc(var(--px)*2);
+  background:var(--sky) var(--wave);background-size:calc(var(--px)*32) calc(var(--px)*16);border-bottom:var(--b) solid var(--ink);position:relative;z-index:5}
+.ver{margin-right:auto;font-size:var(--f1);line-height:1;background:rgba(255,244,214,.88);border:var(--b1) solid var(--ink);border-radius:6px;padding:4px 8px;white-space:nowrap}
+.pill,.plank{height:var(--ctl);display:inline-flex;align-items:center;padding:0 var(--pad);font-weight:700;line-height:1;white-space:nowrap}
+.pill{background:var(--sky-d);color:#fff;border:var(--b) solid var(--ink);border-radius:999px;
+  box-shadow:0 calc(var(--px)*2) 0 var(--sky-dd),0 calc(var(--px)*4) 0 var(--ink);text-shadow:var(--px) var(--px) 0 var(--sky-dd)}
+.plank{background:var(--wood-l) var(--grain);border:var(--b) solid var(--ink);border-radius:10px;color:var(--cream);
+  text-shadow:var(--px) var(--px) 0 var(--wood-d);box-shadow:0 calc(var(--px)*2) 0 var(--wood-d),0 calc(var(--px)*4) 0 var(--ink)}
+#btn-teacher{--c:var(--wood-l);--s:var(--wood-d);color:var(--cream);text-shadow:var(--px) var(--px) 0 var(--wood-d);border-radius:10px;margin-left:12px}
+
+/* ---------- layout: camera + child buttons | maze + blocks ; guide row ---------- */
+#layout{display:grid;grid-template-columns:auto auto;grid-template-rows:var(--row) var(--cardh);justify-content:center;
+  column-gap:16px;row-gap:18px;padding:var(--gap) 16px 0}
+#me{display:flex;flex-direction:column;gap:var(--gap)}
+#cam-box{height:calc(var(--row) - var(--btn) - var(--gap));aspect-ratio:4/3;align-self:center;padding:calc(var(--px)*4)}
+#cam-in{position:absolute;inset:calc(var(--px)*4);border:var(--b) solid var(--ink);border-radius:8px;overflow:hidden;
+  background:#1d2836 repeating-linear-gradient(0deg,rgba(168,230,200,.05) 0 2px,transparent 2px 5px)}
+#sil{position:absolute;left:50%;top:calc(var(--px)*32);transform:translateX(-50%)}
+.chipx{position:absolute;top:12px;height:var(--ctl);display:flex;align-items:center;gap:var(--icgap);padding:0 var(--pad);line-height:1;border:var(--b) solid var(--ink)}
+.badge{left:12px;background:var(--leaf);color:#fff;font-weight:700;border-radius:999px;box-shadow:0 calc(var(--px)*2) 0 var(--leaf-d)}
+.badge i{width:10px;height:10px;background:#fff;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+#chip{right:12px;background:var(--cream);border-radius:12px;box-shadow:0 calc(var(--px)*2) 0 var(--sand-d)}
+#cand{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;align-items:center;gap:16px;
+  background:var(--cream);border:var(--b) solid var(--ink);border-radius:16px;padding:6px 20px 6px 10px;box-shadow:0 calc(var(--px)*2) 0 var(--sand-d)}
+#cand .lb{font-size:var(--f3);font-weight:700;line-height:1}
+.gauge{height:16px;margin-top:8px;background:#e5d3a3;border:var(--b1) solid var(--ink);border-radius:8px;overflow:hidden;min-width:150px}
+.gauge b{display:block;height:100%;background:var(--gr);animation:fill 3.6s steps(9,end) infinite}
+@keyframes fill{0%{width:8%}85%{width:100%}100%{width:100%}}
+#cam-off{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:#1d2836;color:var(--cream);font-weight:700}
+
+#child-controls{display:flex;gap:8px;height:var(--btn)}
+.big{--h:var(--btn);flex:1 1 auto;border-radius:18px}
+.a1{--c:#ffe9a8;--s:#d9b24a}.a2{--c:#bfe5f5;--s:#6fa8cc}.a3{--c:var(--mint);--s:var(--mint-d)}
+.big.on{--c:var(--orange);color:#fff}
+
+#code{position:relative;display:flex;gap:var(--gap);align-items:center}
+#maze-box{width:var(--mz);height:var(--mz);padding:calc(var(--px)*3);flex:none}
+#maze{width:calc(var(--px)*240);height:calc(var(--px)*240);box-sizing:content-box;border:var(--b) solid var(--ink);background:#5bb8ec}
+#blocks{width:calc(var(--px)*32 + 40px);height:var(--mz);flex:none;background:var(--cream);border:var(--b) solid var(--ink);border-radius:18px;
+  box-shadow:0 calc(var(--px)*3) 0 var(--wood-d),0 calc(var(--px)*5) 0 var(--ink);padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:calc(var(--px)*3);position:relative;overflow:hidden}
+#blocks::before{content:"";position:absolute;inset:3px;border:var(--b1) dotted var(--wood);border-radius:14px;pointer-events:none}
+#blocks:empty::after{content:"몸으로 넣은 블록이 여기에 쌓여요";margin:auto 0;padding:0 10px;text-align:center;word-break:keep-all;line-height:30px;color:#8a6a4a}
+.blk{flex:none;width:calc(var(--px)*30);height:calc(var(--px)*30);background:var(--sky-d);border:var(--b) solid var(--ink);border-radius:12px;display:grid;place-items:center;
+  box-shadow:0 calc(var(--px)*2) 0 var(--sky-dd),0 calc(var(--px)*4) 0 var(--ink);margin-bottom:calc(var(--px)*4);animation:drop .3s steps(3)}
+.blk.running{background:#ffe27a;transform:translateY(calc(var(--px)*-2))}
+@keyframes drop{from{transform:translateY(-14px);opacity:0}}
+
+/* ---------- gesture guide: big figures (53 logical px) + 22px label ---------- */
+#guide{grid-column:1/-1;display:flex;gap:var(--gap);justify-content:center;height:var(--cardh)}
+.card{width:calc(var(--px)*96 + 8px);height:var(--cardh);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;padding:0 0 6px;cursor:pointer;
+  background:#e9f7ee;border:var(--b) solid var(--wood);border-radius:18px;font:700 var(--f2)/22px 'Galmuri11',sans-serif;white-space:nowrap;color:var(--tx);
+  box-shadow:0 calc(var(--px)*3) 0 var(--wood-d),0 calc(var(--px)*5) 0 var(--ink);outline:0;position:relative;
+  transition:transform .05s steps(2),box-shadow .05s steps(2)}
+.card::before{content:"";position:absolute;inset:calc(var(--px)*-2);border:var(--b) solid var(--ink);border-radius:20px;pointer-events:none}
+.card:active,.card.pressed{transform:translateY(calc(var(--px)*2));box-shadow:0 var(--px) 0 var(--wood-d),0 calc(var(--px)*3) 0 var(--ink)}
+.card.del{background:#ffe3c0;color:var(--orange-d)}
+
+/* ---------- overlay in the maze slot ---------- */
+#overlay,#sheet{position:absolute;inset:0;z-index:4;background:var(--sand) var(--dots);background-size:calc(var(--px)*16) calc(var(--px)*16);border:var(--b) solid var(--ink);border-radius:18px;
+  box-shadow:0 calc(var(--px)*3) 0 var(--wood-d),0 calc(var(--px)*5) 0 var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 16px 14px}
+#overlay::before,#sheet::before{content:"";position:absolute;inset:4px;border:var(--b) solid var(--wood);border-radius:12px;pointer-events:none}
+#ov-pic{margin-bottom:14px}
+.dlg{position:relative;width:100%;max-width:520px;background:#fffbe6;border-radius:40px 52px 44px 56px / 52px 40px 56px 44px;
+  box-shadow:0 calc(var(--px)*3) 0 rgba(160,120,70,.28);padding:24px 24px 26px;text-align:center}
+.dlg .next{position:absolute;left:50%;bottom:7px;margin-left:-9px;width:18px;height:14px;background:var(--or);clip-path:polygon(0 0,100% 0,50% 100%);animation:bob .9s steps(2) infinite}
+@keyframes bob{50%{transform:translateY(4px)}}
+.tag{position:absolute;left:14px;top:-18px;z-index:1;background:#e0a24a;color:#fff;border-radius:999px;transform:rotate(-4deg);height:32px;line-height:1;font-weight:700;
+  padding:0 16px 0 10px;display:flex;align-items:center;gap:6px;box-shadow:0 calc(var(--px)*2) 0 #b97d2c}
+.dtitle{font-size:var(--f3);font-weight:700;color:var(--sk);line-height:1.2}
+.dtext{line-height:30px;margin-top:6px;word-break:keep-all;min-height:60px}
+.dtext.typing::after{content:"";display:inline-block;width:10px;height:22px;background:var(--ink);margin-left:3px;vertical-align:-3px;animation:blink .6s steps(2) infinite}
+.dlg .gauge{margin:10px auto 0;max-width:260px}
+#ov-buttons{display:flex;gap:12px;justify-content:center;align-items:center;margin-top:14px;padding-bottom:10px;flex-wrap:wrap}
+#ov-buttons .go{--c:var(--sky-d);--s:var(--sky-dd);color:#fff;padding:0 40px;text-shadow:var(--px) var(--px) 0 var(--sky-dd)}
+#ov-buttons .sk{--c:#fff0c8;color:#7a6548}
+
+.g{color:var(--gr)}.k{color:var(--sk)}.o{color:var(--or)}
+
+/* ---------- 활동 뒤 요약: 카메라가 읽은 동작 (G11·P4, D-6) ---------- */
+#ov-sum[hidden]{display:none}
+.tl-h{font-size:11px;color:#8a6a4a;margin:8px 0 6px}
+.tl{display:flex;flex-wrap:wrap;gap:8px 6px;justify-content:center;align-items:flex-start;max-height:calc(var(--px)*100);overflow-y:auto}
+.ev{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:inherit}
+.ev .blk{margin:0;width:calc(var(--px)*22);height:calc(var(--px)*22)}
+.ev .blk svg{width:70%;height:70%}
+.ev .act{width:calc(var(--px)*22);height:calc(var(--px)*22);border-radius:12px;display:grid;place-items:center;border:var(--b) solid var(--ink);background:var(--or);color:#fff;font-size:20px}
+.ev .act.run{background:var(--sky-d)}
+.ev .act svg{width:70%;height:70%}
+.ev small{font-size:11px;line-height:1;color:#8a6a4a;min-height:11px}
+.ev.del .blk{opacity:.38}
+.ev.del::after{content:"";position:absolute;left:50%;top:calc(var(--px)*11);width:calc(var(--px)*24);height:4px;margin-left:calc(var(--px)*-12);background:var(--or);transform:rotate(-35deg);border-radius:2px}
+.ev.miss .blk,.ev.miss .act{background:transparent;border-style:dashed;box-shadow:none;color:var(--ink)}
+.ev.miss .blk svg,.ev.miss .act svg{opacity:.45}
+.ev.sel .blk,.ev.sel .act{outline:3px solid #ffe27a;outline-offset:2px}
+.legend{display:flex;gap:14px;justify-content:center;margin-top:8px;font-size:11px;color:#8a6a4a}
+.why{margin-top:12px;min-height:64px;background:#fff3cf;border-radius:16px;padding:10px 12px;line-height:24px;word-break:keep-all;text-align:left;display:flex;gap:10px;align-items:center}
+.why .pic{flex:none}
+.why .pic svg{width:56px;height:auto}
+.why.empty{justify-content:center;color:#8a6a4a;text-align:center}
+
+/* ---------- teacher menu ---------- */
+#teacher-menu{position:fixed;top:calc(var(--top-h) + 6px);right:16px;width:300px;z-index:30;display:flex;flex-direction:column;gap:8px;
+  background:var(--wood-l) var(--grain);border:var(--b) solid var(--ink);border-radius:18px;padding:12px 12px 16px;box-shadow:0 calc(var(--px)*3) 0 var(--wood-d),0 calc(var(--px)*5) 0 var(--ink)}
+#teacher-menu h3{font-size:var(--f2);font-weight:700;color:var(--cream);text-shadow:var(--px) var(--px) 0 var(--wood-d);margin:0 0 2px 4px;display:flex;align-items:center;gap:8px}
+.ti{--c:#fff0c8;justify-content:space-between;width:100%;padding:0 12px;text-align:left;font-weight:400}
+.ti .lb{display:flex;align-items:center;gap:var(--icgap)}
+kbd{font:700 var(--f1)/1 'Galmuri11',sans-serif;background:var(--wood-l);color:var(--cream);border:2px solid var(--ink);border-radius:6px;padding:4px 7px;text-shadow:1px 1px 0 var(--wood-d)}
+
+/* ---------- decoration in the sand margins (wide screens only) ---------- */
+.deco{position:fixed;pointer-events:none;z-index:0;opacity:.95}
+@media (max-width:1500px){.deco{display:none}}
+
+@media (max-width:900px){
+  body{overflow:auto}
+  #layout{grid-template-columns:1fr;grid-template-rows:none}
+  #code{flex-wrap:wrap}
+  #guide{flex-wrap:wrap;height:auto}
+}
+/* CRT effect start */
+/* Usage: crtPower(screenEl, on) wraps the screen's children in .crt-pic once (except [data-crt-keep]),
+   adds .crt-fx overlay. Classes on screenEl: .crt-off / .crt-on while animating, .crt-dark when off.
+   Every size is a multiple of --px; JS snaps all edges to logical pixels. */
+.crt-pic{position:absolute;inset:0;transform-origin:0 0}
+.crt-dark .crt-pic{visibility:hidden}
+.crt-fx{position:absolute;inset:0;pointer-events:none;z-index:3}
+.crt-fx>*{position:absolute;display:none}
+.crt-noise{left:0;width:100%;image-rendering:pixelated}
+.crt-scan{inset:0;background:repeating-linear-gradient(0deg,rgba(8,12,20,.32) 0 var(--px),transparent var(--px) calc(var(--px)*2))}
+.crt-beam{background:#fffbea;box-shadow:0 0 0 var(--px) rgba(168,230,200,.75),0 0 0 calc(var(--px)*2) rgba(124,200,240,.3)}
+.crt-off .crt-scan,.crt-on .crt-scan{display:block}
+/* CRT effect end */
+/* ---------- 실제 앱에 맞춘 덧붙임 ---------- */
+#cam-video{display:none}
+#cam-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.badge.warn{background:var(--orange);box-shadow:0 calc(var(--px)*2) 0 var(--orange-d)}
+.badge.warn i{display:none}
+.badge,#personal-chip,#candidate{z-index:1}
+#personal-chip{right:12px;background:var(--cream);border-radius:12px;box-shadow:0 calc(var(--px)*2) 0 var(--sand-d)}
+#candidate{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:none;align-items:center;gap:16px;
+  background:var(--cream);border:var(--b) solid var(--ink);border-radius:16px;padding:6px 20px 6px 10px;box-shadow:0 calc(var(--px)*2) 0 var(--sand-d)}
+#candidate.show{display:flex}
+#candidate .lb{font-size:var(--f3);font-weight:700;line-height:1}
+.gauge b{animation:none;width:0}
+#cam-off-cover{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:#1d2836;color:var(--cream);font-weight:700}
+
+.pill.predict{background:#8a5cc7;box-shadow:0 calc(var(--px)*2) 0 #5e3a94,0 calc(var(--px)*4) 0 var(--ink);text-shadow:var(--px) var(--px) 0 #5e3a94}
+.pill.fix{background:var(--orange);box-shadow:0 calc(var(--px)*2) 0 var(--orange-d),0 calc(var(--px)*4) 0 var(--ink);text-shadow:var(--px) var(--px) 0 var(--orange-d)}
+
+/* 블록: 미로 아래에 왼쪽부터 가로로 쌓고, 한 줄이 차면 다음 줄로 (줄 수는 layout()이 --blkh 로 맞춘다) */
+#code{flex-direction:column;align-items:center;justify-content:space-between;height:var(--row)}
+/* 왼쪽 세트와 오른쪽 세트는 같은 높이(--row): 위는 카메라·미로, 아래는 버튼·블록 칸 끝이 맞는다.
+   남는 세로 공간은 화면 위아래로 나눈다 */
+#layout{height:calc(var(--vh,100vh) - var(--top-h));align-content:center;padding-top:0;padding-bottom:var(--gap)}
+#me{height:var(--row);justify-content:space-between}
+#cam-box{align-self:center}
+#blocks{width:var(--mz);height:var(--blkh,calc(var(--px)*38 + 24px));flex-direction:row;flex-wrap:wrap;
+  justify-content:flex-start;align-content:center;align-items:flex-start;gap:calc(var(--px)*4);padding:12px 16px}
+#blocks:empty::after{margin:auto;padding:0;line-height:1.2}
+.blk{margin-bottom:0}
+.blk.blocked{background:var(--orange);box-shadow:0 calc(var(--px)*2) 0 var(--orange-d),0 calc(var(--px)*4) 0 var(--ink)}
+.blk.blink{animation:blink .4s steps(2) infinite}
+#blocks.blocks-locked{outline:calc(var(--px)*2) dashed #8a5cc7;outline-offset:4px}
+
+.card{cursor:default}
+.card.disabled{opacity:.3}
+
+/* ---------- 기기 맞춤 (노트북·태블릿): 크기 값은 모두 js/theme-b2.js 의 layout()이 화면에 맞춰 넣는다 ---------- */
+html,body{height:var(--vh,100%)}
+/* 카메라 세트 너비는 카메라 너비로 고정한다 (버튼 글자가 길어도 칸이 넓어지지 않게) */
+#me,#cam-box{width:var(--camw)}
+#me{height:var(--seta,var(--row))}
+#cam-box{height:calc(var(--seta,var(--row)) - var(--btn) - var(--gap))}
+/* 태블릿 세로: 카메라 세트를 위, 미로 세트를 아래에 두고 너비를 맞춘다 */
+.portrait #layout{grid-template-columns:auto;grid-template-rows:var(--seta) var(--row) var(--cardh);justify-items:center}
+.big{flex:1 1 0;min-width:0;padding:0 calc(var(--pad)*.75)}
+.compact-btn .big{flex-direction:column;gap:2px;font-size:calc(var(--f2)*.8);padding:0 4px}
+.compact-btn .big img.px{width:auto!important;height:calc(var(--btn)*.32)!important}
+/* 아래 동작 카드는 미로보다 작은 배율(--cpx)로 그려 납작하게 한다 */
+:root{--cardh:calc(var(--cpx)*53 + var(--f2) + 12px)}
+#guide{--px:var(--cpx);--b:calc(var(--cpx)*2);--b1:var(--cpx)}
+.card{line-height:var(--f2)}
+/* 글자 줄 간격·여백도 글자 크기를 따라간다 */
+.dtext{line-height:calc(var(--f2)*1.36);min-height:calc(var(--f2)*2.72)}
+.dtext.typing::after{height:var(--f2)}
+.tag{height:calc(var(--ctl)*.8)}
+.gauge{min-width:calc(var(--f2)*6.8)}
+.badge i{width:calc(var(--f1)*.9);height:calc(var(--f1)*.9)}
+#top{gap:var(--gap)}
+/* 원래 시안의 좁은 화면 배치(한 줄로 늘어놓고 스크롤)는 쓰지 않는다: 어떤 화면이든 한눈에 들어가게 줄인다 */
+@media (max-width:900px){
+  body{overflow:hidden}
+  #layout{grid-template-columns:auto auto;grid-template-rows:var(--row) var(--cardh)}
+  #code{flex-wrap:nowrap}
+  #guide{flex-wrap:nowrap;height:var(--cardh)}
+}
+
+/* ---------- 예측하기: 칸을 누르면 뜨는 말 ---------- */
+#maze-box{position:relative}
+#maze{cursor:default}
+.predict-on #maze{cursor:pointer}
+/* 미로 아래 테두리 밖에 걸쳐 칸(출발점·답 칸)을 가리지 않는다 */
+#maze-say{position:absolute;left:50%;top:calc(100% - 8px);transform:translateX(-50%);z-index:6;width:max-content;max-width:calc(100% - 16px);text-align:center;word-break:keep-all;background:#fffbe6;color:var(--ink);
+  border:var(--b) solid var(--ink);border-radius:999px;padding:6px 16px;box-shadow:0 calc(var(--px)*2) 0 var(--wood-d)}
+#maze-say[hidden]{display:none}
+#maze-say.ok{background:#e4f6dc;color:var(--gr)}
