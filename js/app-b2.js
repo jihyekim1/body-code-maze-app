@@ -3,7 +3,7 @@
 // 설계 근거: design-principles-2026-10-27.md (P1–P9, S1), design-decision-table-2026-10-27.md, screen-and-stages-2026-10-27.md
 (function () {
   const B2 = window.BCM_B2;
-  const APP_VERSION = '1.4.3';
+  const APP_VERSION = '1.4.4';
   const GESTURE_VERSION = 3;              // 동작 규칙이 바뀌면 올린다 (F-2)
   const HOLD = { forward: 2000, right: 2000, left: 2000, delete_one: 2000, run: 2000, delete_all: 3000 }; // C-2
   // 기능 시험용: 주소에 ?hold=1000|2000|3000 을 붙이면 전체 지우기를 뺀 유지 시간을 바꾼다 (계획서 5단계)
@@ -150,10 +150,20 @@
   }
 
   // ── 그리기: 안내판, 블록, 미로 ──────────────────────────────
+  // 모두 지우기 그림은 와이퍼처럼 좌·중·우를 오간다 (안내 카드·튜토리얼)
+  const WIPE_FRAMES = ['delete_all_l', 'delete_all', 'delete_all_r', 'delete_all'];
+  const WIPE_MS = 220;
+  let guideTimer = null;
   function renderGuide() {
     const locked = stage().type === 'predict';
     el.guide.innerHTML = ['forward', 'right', 'left', 'delete_one', 'delete_all', 'run'].map(t =>
-      `<div class="card ${t.startsWith('delete') ? 'del' : ''} ${locked && t !== 'run' ? 'disabled' : ''}">${B2.figOf(t)}<span>${SHORT[t]}</span></div>`).join('');
+      `<div class="card ${t.startsWith('delete') ? 'del' : ''} ${locked && t !== 'run' ? 'disabled' : ''}" data-t="${t}">${B2.figOf(t)}<span>${SHORT[t]}</span></div>`).join('');
+    clearInterval(guideTimer);
+    const img = el.guide.querySelector('[data-t="delete_all"] img');
+    if (!img) return;
+    const srcs = WIPE_FRAMES.map(t => /src="([^"]+)"/.exec(B2.figOf(t))[1]);
+    let i = 1;
+    guideTimer = setInterval(() => { i = (i + 1) % srcs.length; img.src = srcs[i]; }, WIPE_MS);
   }
 
   function renderBlocks(blinkAll = false) {
@@ -411,6 +421,12 @@
     const a = B2.figOf('neutral', { k });
     el.ovPic.innerHTML = a;
     if (pose === 'neutral') return;
+    if (pose === 'delete_all') {
+      const fr = WIPE_FRAMES.map(t => B2.figOf(t, { k })); let i = 1;
+      el.ovPic.innerHTML = fr[i];
+      figTimer = setInterval(() => { i = (i + 1) % fr.length; el.ovPic.innerHTML = fr[i]; }, WIPE_MS);
+      return;
+    }
     const p = B2.figOf(pose, { k }); let on = false;
     figTimer = setInterval(() => { on = !on; el.ovPic.innerHTML = on ? p : a; }, 900);
   }

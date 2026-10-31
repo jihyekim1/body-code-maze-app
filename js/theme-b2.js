@@ -206,16 +206,18 @@ const NA=[XY(-6.2,25.5),XY(-7.6,28.8,.3),XY(-8.1,32.2,.6)];
 const DOWN=[XY(-6.2,25.5),XY(-7.0,29,.3),XY(-7.4,32.6,.6)];
 const SIDE=[XY(6.4,25.2),XY(11.6,25),XY(16.8,24.8)];
 const ROUND=[XY(-6.6,25),XY(-13.6,17.6,.5),XY(-15.2,8.2,1),XY(-11.6,.6,1.2),XY(-2.3,-3.4,1.5)];
-const WIPE=[XY(-6.4,25.4),XY(-11.5,31,2),XY(-4.4,29.2,6)];
+/* 와이퍼: 팔꿈치는 제자리, 아래팔과 손만 팔꿈치를 축으로 같은 방향으로 흔든다 (deg: +면 화면 오른쪽) */
+const WIPER=deg=>{const r=deg*Math.PI/180,L=7.6,dx=L*Math.sin(r),dy=-L*Math.cos(r);
+  return [-1,1].map(s=>{const e=XY(11.2*s,31.4,1);return{pts:[XY(6.4*s,25.4),e,XY(e.x+dx,e.y+dy,1.5)],open:[0,-1],th:-s,act:1}})};
 const POSE={
   neutral:{arms:[{pts:NA},{pts:mirX(NA)}]},
   '오른쪽':{arms:[{pts:DOWN},{pts:SIDE,open:[1,0],th:-1,act:1}]},
   '왼쪽':{arms:[{pts:mirX(SIDE),open:[-1,0],th:1,act:1},{pts:mirX(DOWN)}]},
   '하나 지우기':{arms:[{pts:[XY(-6.4,25.4),XY(-13,35,3),XY(10,22.5,6)],act:1},{pts:[XY(6.4,25.4),XY(13,35,3),XY(-10,22.5,6.5)],act:1}]},
-  '모두 지우기':{arms:[{pts:WIPE,open:[0,-1],th:1,act:1},{pts:mirX(WIPE),open:[0,-1],th:-1,act:1}],
-    cue:({seg,palm})=>{[-1,1].forEach(s=>{palm(XY(15*s,29.2),[0,-1],-s,'G');
-      seg(XY(19.5*s,22.4),XY(25*s,22.4),.5,'C');seg(XY(19.5*s,36.4),XY(25*s,36.4),.5,'C');
-      seg(XY(19*s,29.4),XY(30*s,29.4),.6,'C');seg(XY(30.4*s,29.4),XY(27*s,26),.6,'C');seg(XY(30.4*s,29.4),XY(27*s,32.8),.6,'C')})}},
+  /* 모두 지우기: 가운데 장면이 기본(후보 상자·요약), 안내 카드·튜토리얼은 좌·중·우를 오가며 움직인다 */
+  '모두 지우기':{arms:WIPER(0)},
+  '모두 지우기-좌':{arms:WIPER(-28)},
+  '모두 지우기-우':{arms:WIPER(28)},
   '실행':{arms:[{pts:ROUND,act:1,over:1},{pts:mirX(ROUND),act:1,over:1}]},
   '앞으로':{yaw:55,arms:P=>[{pts:[P(6.4,25.6,0),P(5.6,27.4,15),P(4.8,27.4,30)],act:1},{pts:[P(-6.4,25.2,0),P(-5.4,23.6,15),P(-4.6,23.4,30)],act:1}],
     cue:({seg})=>[33,38].forEach(x=>{seg(XY(x,22),XY(x+3,25.4),.6,'C');seg(XY(x+3,25.4),XY(x,28.8),.6,'C')})}
@@ -466,7 +468,7 @@ function drawMaze(canvas,st,s){
 }
 
 /* ---------- 앱에 내놓는 것 ---------- */
-const POSE_OF={neutral:'neutral',forward:'앞으로',right:'오른쪽',left:'왼쪽',delete_one:'하나 지우기',delete_all:'모두 지우기',run:'실행'};   /* 그림 이름(내부용). 화면 글자는 앱의 SHORT·LABEL */
+const POSE_OF={neutral:'neutral',forward:'앞으로',right:'오른쪽',left:'왼쪽',delete_one:'하나 지우기',delete_all:'모두 지우기',delete_all_l:'모두 지우기-좌',delete_all_r:'모두 지우기-우',run:'실행'};   /* 그림 이름(내부용). 화면 글자는 앱의 SHORT·LABEL */
 const figOf=(t,o={})=>fig(POSE_OF[t]||'neutral',String(t).startsWith('delete')?'#f39a42':'#3d8fe0',o);
 const BLK_IC={forward:'arrow',right:'turn',left:'turnL'};
 const plain=t=>t.replace(/\{[gko]:([^}]*)\}/g,'$1');
