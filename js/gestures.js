@@ -6,11 +6,15 @@
   const WIPE_AMP = 0.35;   // 칠판 지우기 왕복 폭 (sw)
   const WIPE_HANDS = 2.0;  // 두 손목 사이 최대 간격 (sw). 칠판 지우듯 손을 벌려도 되게 (2026-10-29, 1.2→2.0)
   const WIPE_GAP = 1500;   // 방향 바뀜 사이 최대 간격 (ms). 천천히 크게 문질러도 끊기지 않게 (2026-10-29, 800→1500)
+  const WIPE_TOP = 0.6;    // 칠판 지우기를 인정하는 어깨 위 높이 (sw). 전문가 검토 뒤 0.2→0.6, '앞으로'의 높이 범위와 맞춤 (2026-11-07)
+  const ELBOW_MAX = 0.7;   // '앞으로'에서 팔꿈치가 어깨 높이에서 벗어나도 되는 폭 (sw). 아래팔만 세워 흔드는 자세를 거른다 (2026-11-07)
+  const MOVE_WIN = 500;    // 손이 움직이는지 볼 시간 (ms)
+  const MOVE_RANGE = 0.25; // 이 시간 동안 손목이 좌우로 이만큼(sw) 넘게 오가면 움직이는 손으로 본다
 
   const v = p => (p && p.visibility !== undefined ? p.visibility : 1);
 
   function createWipeTracker() {
-    return { dir: 0, anchor: null, extreme: null, reversals: [] };
+    return { dir: 0, anchor: null, extreme: null, reversals: [], hist: [] };
   }
 
   function resetWipe(t) {
@@ -31,6 +35,27 @@
       t.dir = -t.dir;
       t.extreme = x;
     }
+  }
+
+  // 몸 가운데를 기준으로 손목의 좌우 위치를 기록해, 최근에 손이 얼마나 오갔는지 돌려준다.
+  // 몸이 흔들리는 것은 세지 않는다.
+  function handMotion(t, lx, rx, now) {
+    t.hist.push({ now, lx, rx });
+    while (t.hist.length && now - t.hist[0].now > MOVE_WIN) t.hist.shift();
+    return motionOf(t);
+  }
+  function motionOf(t) {
+    const range = a => Math.max(...a) - Math.min(...a);
+    return {
+      l: range(t.hist.map(h => h.lx)),
+      r: range(t.hist.map(h => h.rx)),
+      mid: range(t.hist.map(h => (h.lx + h.rx) / 2)),
+    };
+  }
+
+  // 팔꿈치가 안 보이면 이 조건으로 막지 않는다
+  function elbowsUp(lm, shoulderY, sw) {
+    return [lm[13], lm[14]].every(e => !e || v(e) < VIS || Math.abs(e.y - shoulderY) < ELBOW_MAX * sw);
   }
 
   function wipeActive(t, now) {
@@ -70,7 +95,8 @@
     }
 
     // 칠판 지우기: 두 손이 가슴 높이에서 함께 좌우로 왕복
-    const chest = lw.y > shoulderY - 0.2 * sw && rw.y > shoulderY - 0.2 * sw && lw.y < hipY && rw.y < hipY;
+    const motion = handMotion(tracker, (lw.x - bodyMid) / sw, (rw.x - bodyMid) / sw, now);
+    const chest = lw.y > shoulderY - WIPE_TOP * sw && rw.y > shoulderY - WIPE_TOP * sw && lw.y < hipY && rw.y < hipY;
     if (chest && wristGap < WIPE_HANDS * sw) updateWipe(tracker, midX, sw, now);
     else resetWipe(tracker);
     if (chest && wipeActive(tracker, now)) {
@@ -96,9 +122,68 @@
     const level = Math.abs(lw.y - ls.y) < 0.6 * sw && Math.abs(rw.y - rs.y) < 0.6 * sw;
     const notWide = rw.x > rs.x - 0.6 * sw && lw.x < ls.x + 0.6 * sw;
     const front = lw.z !== undefined && rw.z !== undefined ? (lw.z < ls.z - 0.1 && rw.z < rs.z - 0.1) : true;
-    if (level && notWide && front && !crossed) return { status: 'ok', type: 'forward' };
+    // 손을 흔드는 중에는 '앞으로'로 보지 않는다 (P3, 전문가 검토 뒤 추가 2026-11-07)
+    const moving = Math.max(motion.l, motion.r) > MOVE_RANGE;
+    if (level && notWide && front && !crossed && !moving && elbowsUp(lm, shoulderY, sw)) return { status: 'ok', type: 'forward' };
 
     return { status: 'ok', type: null };
+  }
+
+  // 동작이 명령이 되지 못했을 때 무엇을 고치면 되는지 찾는다 (P5, 전문가 검토 뒤 추가 2026-11-07).
+  // 판정에는 쓰지 않는다. classify의 조건 가운데 하나만 어긋난 자세에만 답하고,
+  // 팔을 내리고 있거나 한 팔로 가리키는 자세처럼 명령하려는지 알 수 없을 때는 말하지 않는다.
+  // 반환: null 또는 { target: 하려던 것으로 보이는 동작, text: 아이에게 보일 말 }
+  function nearMiss(lm, tracker) {
+    if (!lm) return null;
+    const nose = lm[0], ls = lm[11], rs = lm[12], lw = lm[15], rw = lm[16], li = lm[19], ri = lm[20];
+    const sw = Math.abs(ls.x - rs.x);
+    if (sw < 0.03) return null;
+    const shoulderY = (ls.y + rs.y) / 2, bodyMid = (ls.x + rs.x) / 2, hipY = shoulderY + 1.6 * sw;
+    const dyL = (lw.y - ls.y) / sw, dyR = (rw.y - rs.y) / sw;
+    const outL = (lw.x - ls.x) / sw, outR = (rs.x - rw.x) / sw;
+    const lDown = dyL > 0.6, rDown = dyR > 0.6;
+    const crossed = lw.x < rw.x;
+    const midOff = Math.abs((lw.x + rw.x) / 2 - bodyMid) / sw;
+    const wristGap = Math.hypot(lw.x - rw.x, lw.y - rw.y) / sw;
+    const say = (target, text) => ({ target, text });
+
+    // 시작: 두 손이 머리 위에 있는데 만나지 않음
+    if (lw.y < nose.y - 0.2 * sw && rw.y < nose.y - 0.2 * sw) {
+      if (midOff >= 0.6) return say('run', '두 손을 머리 바로 위로 모아 볼까요?');
+      const gap = li && ri ? Math.hypot(li.x - ri.x, li.y - ri.y) / sw : wristGap;
+      return gap < 1.5 ? say('run', '두 손끝을 머리 위에서 맞대 볼까요?') : null;
+    }
+
+    // 모두 지우기: 두 손이 움직이는데 함께 움직이지 않음
+    const m = tracker && tracker.hist.length ? motionOf(tracker) : null;
+    if (m && Math.min(m.l, m.r) > MOVE_RANGE && m.mid < 0.2 && lw.y < hipY && rw.y < hipY) {
+      return say('delete_all', '두 손을 같은 쪽으로 함께 움직여 볼까요?');
+    }
+
+    // 오른쪽·왼쪽: 한 팔이 옆으로 나왔는데 조건 하나가 어긋남
+    for (const [target, out, dy, otherOut, otherDown] of [['right', outR, dyR, outL, lDown], ['left', outL, dyL, outR, rDown]]) {
+      if (otherOut >= 0.4) continue;
+      if (out > 0.8 && Math.abs(dy) >= 0.5 && Math.abs(dy) < 1.5 && otherDown) return say(target, '팔을 어깨 높이로 맞춰 볼까요?');
+      if (out > 0.8 && Math.abs(dy) < 0.5 && !otherDown) return say(target, '다른 팔은 내려 볼까요?');
+      if (out > 0.3 && out <= 0.8 && Math.abs(dy) < 0.5 && otherDown) return say(target, '팔을 옆으로 더 쭉 펴 볼까요?');
+    }
+
+    // 하나 지우기: 손목이 거의 만났거나, 엇갈렸는데 높이가 다름
+    const inX = lw.y > shoulderY + 0.3 * sw && rw.y > shoulderY + 0.3 * sw && lw.y < hipY && rw.y < hipY;
+    if (crossed && lw.y <= shoulderY + 0.3 * sw && rw.y <= shoulderY + 0.3 * sw) return say('delete_one', '엇갈린 손을 가슴 앞으로 내려 볼까요?');
+    if (!crossed && inX && wristGap < 0.35 && midOff < 0.6) return say('delete_one', '두 손목을 서로 엇갈려 볼까요?');
+    if (crossed) return null;
+
+    // 앞으로: 두 팔이 함께 올라왔는데 높이·너비·앞뒤 중 하나가 어긋남
+    const levelL = Math.abs(dyL) < 0.6, levelR = Math.abs(dyR) < 0.6;
+    const notWide = outR < 0.6 && outL < 0.6;
+    const front = lw.z !== undefined && rw.z !== undefined ? (lw.z < ls.z - 0.1 && rw.z < rs.z - 0.1) : true;
+    if (levelL && levelR && !notWide) return say('forward', '두 팔을 앞으로 모아 볼까요?');
+    if (levelL && levelR && front && !elbowsUp(lm, shoulderY, sw)) return say('forward', '두 팔을 쭉 펴 볼까요?');
+    if (levelL && levelR && !front) return say('forward', '두 팔을 앞으로 쭉 뻗어 볼까요?');
+    if (notWide && front && dyL >= 0.6 && dyL < 1.5 && dyR >= 0.6 && dyR < 1.5) return say('forward', '두 팔을 어깨 높이까지 올려 볼까요?');
+    if (notWide && front && dyL <= -0.6 && dyL > -1.2 && dyR <= -0.6 && dyR > -1.2) return say('forward', '두 팔을 어깨 높이로 내려 볼까요?');
+    return null;
   }
 
   // 진단용(주소에 ?debug=1): 칠판 지우기 조건을 어디서 못 넘는지 보여 준다. 판정에는 쓰지 않는다
@@ -119,5 +204,5 @@
     ].join('\n');
   }
 
-  window.BCM_GESTURES = { classify, createWipeTracker, resetWipe, debugInfo, WIPE_AMP, WIPE_GAP };
+  window.BCM_GESTURES = { classify, nearMiss, createWipeTracker, resetWipe, debugInfo, WIPE_AMP, WIPE_GAP };
 })();

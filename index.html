@@ -6,7 +6,7 @@
   <title>몸으로 길 찾기</title>
   <!-- 시안 B2(바닷가 섬) 화면. 앱 동작은 index.html 과 같다 -->
   <link href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/style-b2.css?v=1.4.4">
+  <link rel="stylesheet" href="css/style-b2.css?v=1.5.0">
   <!-- 관절 추정 라이브러리 버전 고정 (F-1). 앱 파일 주소의 ?v= 는 APP_VERSION과 같이 올린다 -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
@@ -32,7 +32,10 @@
           <div id="sil" aria-hidden="true"></div>
           <video id="cam-video" playsinline muted></video>
           <canvas id="cam-canvas" width="640" height="480"></canvas>
-          <div id="badge" class="chipx badge"><i></i>카메라를 켜는 중이에요</div>
+          <div id="cam-top">
+            <div id="badge" class="chipx badge"><i></i>카메라를 켜는 중이에요</div>
+            <div id="cam-hint" aria-live="polite" hidden></div>
+          </div>
           <div id="personal-chip" class="chipx" hidden>✦ 내 동작으로 알아봐요</div>
           <div id="candidate">
             <span id="cand-pic"></span>
@@ -89,12 +92,12 @@
     <button class="btn ti" id="t-close" type="button"><span class="lb">닫기</span><kbd>Esc</kbd></button>
   </aside>
 
-  <script src="js/stages.js?v=1.4.4"></script>
-  <script src="js/gestures.js?v=1.4.4"></script>
-  <script src="js/personal.js?v=1.4.4"></script>
-  <script src="js/pictograms.js?v=1.4.4"></script>
-  <script src="js/why.js?v=1.4.4"></script>
-  <script src="js/theme-b2.js?v=1.4.4"></script>
-  <script src="js/app-b2.js?v=1.4.4"></script>
+  <script src="js/stages.js?v=1.5.0"></script>
+  <script src="js/gestures.js?v=1.5.0"></script>
+  <script src="js/personal.js?v=1.5.0"></script>
+  <script src="js/pictograms.js?v=1.5.0"></script>
+  <script src="js/why.js?v=1.5.0"></script>
+  <script src="js/theme-b2.js?v=1.5.0"></script>
+  <script src="js/app-b2.js?v=1.5.0"></script>
 </body>
 </html>

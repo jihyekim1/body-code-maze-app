@@ -7,7 +7,7 @@
     right: '오른팔만 어깨 높이로 옆에 나와 있었어요',
     left: '왼팔만 어깨 높이로 옆에 나와 있었어요',
     delete_one: '두 손목이 가슴 앞에서 엇갈려 있었어요',
-    delete_all: '두 손이 가슴 앞에서 왼쪽 오른쪽으로 오갔어요',
+    delete_all: '두 손이 함께 왼쪽 오른쪽으로 오갔어요',
     run: '두 손이 머리 위에서 만났어요',
   };
   const NAME = { forward: '앞으로', right: '오른쪽', left: '왼쪽', delete_one: '하나 지우기', delete_all: '모두 지우기', run: '시작' };

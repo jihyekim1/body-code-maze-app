@@ -248,4 +248,10 @@ html,body{height:var(--vh,100%)}
 #maze-say{position:absolute;left:50%;top:calc(100% - 8px);transform:translateX(-50%);z-index:6;width:max-content;max-width:calc(100% - 16px);text-align:center;word-break:keep-all;background:#fffbe6;color:var(--ink);
   border:var(--b) solid var(--ink);border-radius:999px;padding:6px 16px;box-shadow:0 calc(var(--px)*2) 0 var(--wood-d)}
 #maze-say[hidden]{display:none}
+/* 고칠 점 안내: 아이들이 보는 카메라 화면에서 상태 표시 옆에 띄운다 (P5) */
+#cam-top{position:absolute;left:12px;right:12px;top:12px;z-index:1;display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;pointer-events:none}
+#cam-top .chipx{position:static}
+#cam-hint{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+#cam-hint .hint{height:var(--ctl);display:flex;align-items:center;padding:0 var(--pad);line-height:1;border:var(--b) solid var(--ink);background:#fffbe6;color:var(--ink);border-radius:999px;font-size:calc(var(--f2)*.77);white-space:nowrap;box-shadow:0 calc(var(--px)*2) 0 var(--sand-d)}
+#cam-hint[hidden]{display:none}
 #maze-say.ok{background:#e4f6dc;color:var(--gr)}

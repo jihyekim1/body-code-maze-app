@@ -3,8 +3,8 @@
 // 설계 근거: design-principles-2026-10-27.md (P1–P9, S1), design-decision-table-2026-10-27.md, screen-and-stages-2026-10-27.md
 (function () {
   const B2 = window.BCM_B2;
-  const APP_VERSION = '1.4.4';
-  const GESTURE_VERSION = 3;              // 동작 규칙이 바뀌면 올린다 (F-2)
+  const APP_VERSION = '1.5.0';
+  const GESTURE_VERSION = 4;              // 동작 규칙이 바뀌면 올린다 (F-2)
   const HOLD = { forward: 2000, right: 2000, left: 2000, delete_one: 2000, run: 2000, delete_all: 3000 }; // C-2
   // 기능 시험용: 주소에 ?hold=1000|2000|3000 을 붙이면 전체 지우기를 뺀 유지 시간을 바꾼다 (계획서 5단계)
   const HOLD_TEST = Number(new URLSearchParams(location.search).get('hold'));
@@ -127,7 +127,7 @@
     const st = stage();
     state.program = st.given.slice();
     state.added = 0; state.deleted = 0;
-    state.guess = null; mazeSay('');
+    state.guess = null; mazeSay(''); hint.misses = {}; clearHint();
     state.events = []; state.progEv = state.program.map(() => null);
     state.predictMark = null; state.blockedIdx = -1; state.runIdx = -1; state.wave = 0;
     clearCandidate(false);
@@ -138,7 +138,7 @@
     renderGuide(); renderBlocks(); hideOverlay();
     state.mode = 'play';
     log('stage_start');
-    if (st.type === 'predict') mazeSay('이 코드대로 가면 어디에 도착할까? 도착할 칸을 눌러 봐요.');
+    if (st.type === 'predict') mazeSay('이 코드대로 가면 어디에 도착할까요? 도착할 칸을 눌러 봐요.');
     else if (st.type === 'fix') mazeSay('이 코드로는 도착하지 못해요. 고쳐 볼까요?');
   }
 
@@ -205,8 +205,10 @@
     if (state.cand && logIt) {
       const held = Math.round(performance.now() - state.cand.start);
       log('candidate_cancel', { type: state.cand.type, held_ms: held });
-      if (why && state.mode === 'play' && held >= HOLD[state.cand.type] * WHY.MISS_MIN)
+      if (why && state.mode === 'play' && held >= HOLD[state.cand.type] * WHY.MISS_MIN) {
         state.events.push({ k: 'miss', t: state.cand.type, ms: held, why, p: !!state.personal });
+        if (why === 'gone') hintAfterMiss(state.cand.type);
+      }
     }
     state.cand = null;
     hintOn = false;
@@ -227,6 +229,58 @@
       drawGauge(el.candGauge, 0);
       el.cand.classList.add('show');
     } else el.cand.classList.remove('show');
+  }
+
+  // ── 고칠 점 안내 (P5, 전문가 검토 뒤 추가 2026-11-07) ─────────
+  // 명령하려다 안 된 것으로 볼 수 있을 때만, 다음에 해 볼 행동을 말풍선으로 짧게 알린다.
+  // 판정에는 영향을 주지 않는다. 내 동작 알려 주기를 쓰는 중에는 규칙이 달라 말하지 않는다.
+  const HINT_MS = 1200;     // 같은 자세가 이만큼 이어져야 말한다 (지나가는 자세에는 말하지 않게)
+  const HINT_KEEP = 6000;   // 자세가 바뀌어도 이만큼은 보여 준다 (1·2학년이 천천히 읽을 수 있게)
+  const HINT_MAX = 3;       // 한 번에 띄우는 안내 수
+  const MISS_REPEAT = 3;    // 같은 동작이 이만큼 끊기면 그림을 보라고 한다
+  const hint = { text: null, since: 0, items: [], misses: {} };   // items: [{ text, at }]
+  const camHint = $('cam-hint');   // 아이들이 보는 카메라 화면, 상태 표시 옆에 띄운다
+
+  function showHint(text, now) {
+    if (!camHint) return;
+    const old = hint.items.find(x => x.text === text);
+    if (old) { old.at = now; return; }
+    log('hint', { text });
+    hint.items.push({ text, at: now });
+    if (hint.items.length > HINT_MAX) hint.items.shift();
+    renderHints();
+  }
+  function renderHints() {
+    if (!camHint) return;
+    camHint.hidden = !hint.items.length;
+    camHint.innerHTML = hint.items.map(x => `<div class="hint">${x.text}</div>`).join('');
+  }
+  function pruneHints(now) {
+    const n = hint.items.length;
+    hint.items = hint.items.filter(x => now - x.at <= HINT_KEEP);
+    if (hint.items.length !== n) renderHints();
+  }
+  function clearHint() {
+    hint.items = [];
+    renderHints();
+  }
+  function hintAfterMiss(type) {
+    const own = !!state.personal;   // 내 동작을 쓰는 중에는 아래 그림과 다를 수 있어 그림을 보라고 하지 않는다
+    hint.misses[type] = (hint.misses[type] || 0) + 1;
+    showHint(!own && hint.misses[type] >= MISS_REPEAT ? '아래 그림을 보고 다시 해 볼까요?' : '블록을 넣으려면 끝까지 그대로 있어 볼까요?', performance.now());
+  }
+  function updateHint(lm, res, now) {
+    const tutorial = state.mode === 'tutorial';
+    const can = (state.mode === 'play' || tutorial) && !state.paused && !state.personal &&
+      !state.cand && !state.needNeutral && res.status === 'ok' && !res.type;
+    let h = can ? G.nearMiss(lm, state.tracker) : null;
+    if (h && tutorial && h.target !== state.tutorial.target) h = null;
+    if (!h) {
+      hint.text = null;
+      return;
+    }
+    if (h.text !== hint.text) { hint.text = h.text; hint.since = now; return; }
+    if (now - hint.since >= HINT_MS) showHint(h.text, now);
   }
 
   function handleGesture(res, now) {
@@ -265,6 +319,8 @@
     state.lastConfirm = now;
     state.needNeutral = true;
     state.cand = null;
+    hint.misses = {};
+    clearHint();
     el.cand.classList.remove('show');
     drawGauge(el.candGauge, 0);
     sound.confirm();
@@ -296,7 +352,8 @@
   // 편집하면 캐릭터를 출발점으로 되돌린다 (C-4)
   function afterEdit() {
     mazeSay('');   // 블록을 고치면 앞의 안내(길이 막혔어 등)는 치운다
-    state.predictMark = null; state.blockedIdx = -1; state.runIdx = -1;
+    state.predictMark = null; state.runIdx = -1;
+    if (state.blockedIdx >= state.program.length) state.blockedIdx = -1;   // 주황색 블록이 지워질 때까지 표시를 남긴다
     resetPlayer(false);
     renderBlocks();
   }
@@ -311,7 +368,7 @@
     if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
     const ok = x === st.predictEnd.x && y === st.predictEnd.y;
     state.guess = { x, y, ok };
-    const text = ok ? '정답이에요! 시작하여 확인해 보세요.' : '다시 한 번 생각해 보아요.';
+    const text = ok ? '정답이에요! 시작하여 확인해 보세요.' : '블록을 하나씩 따라가 보고 다시 눌러 볼까요?';
     mazeSay(text, ok);
     if (ok) sound.success(); else sound.soft();
     log('predict_guess', { x, y, correct: ok });
@@ -325,6 +382,7 @@
     if (state.mode !== 'play') return;
     if (!state.program.length) { mazeSay('먼저 블록을 넣어 볼까요?'); return; }
     clearCandidate(false);
+    clearHint();
     state.mode = 'running';
     state.attempt++;
     state.predictMark = null; state.blockedIdx = -1;
@@ -343,7 +401,8 @@
       const nx = p.x + DX[p.dir], ny = p.y + DY[p.dir];
       if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE || st.grid[ny][nx] === 0) {
         state.blockedIdx = i; state.runIdx = -1; renderBlocks();
-        sound.soft(); mazeSay('앗, 길이 막혔어. 블록을 고쳐 볼까?');
+        sound.soft(); mazeSay('앗, 길이 막혔어요. 주황색 블록부터 고쳐 볼까요?');
+        showHint('X자로 주황색 블록까지 지워 볼까요?', performance.now());
         log('run_end', { result: 'blocked', at: i });
         state.mode = 'play';
         return;
@@ -374,7 +433,8 @@
       later(() => showSummary('goal'), 900);
     } else {
       log('run_end', { result: 'end', x: p.x, y: p.y });
-      sound.soft(); mazeSay('도착하지 못했어. 블록을 고쳐 볼까?');
+      sound.soft(); mazeSay('도착하지 못했어요. 블록을 고쳐 볼까요?');
+      showHint('블록을 더 넣거나 X자로 지워 볼까요?', performance.now());
       state.mode = 'play';
     }
   }
@@ -440,7 +500,7 @@
     el.ovButtons.innerHTML = '';
     for (const [label, fn] of buttons) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = fn;
-      b.className = 'btn ' + (label.includes('교사') ? 'sk' : 'go');
+      b.className = 'btn ' + (label.includes('교사') || label === '건너뛰기' ? 'sk' : 'go');
       el.ovButtons.appendChild(b);
     }
     el.overlay.hidden = false;
@@ -462,13 +522,13 @@
       t.target = null;
       const text = '몸으로 명령 {k:블록}을 넣어 길을 찾아요. 동작을 하나씩 배워 볼까요?';
       showOverlay('forward', '몸으로 길 찾기', text,
-        [['시작', () => { t.i++; showTutorialStep(); }], ['건너뛰기(교사)', () => endTutorial(true)]]);
+        [['시작', () => { t.i++; showTutorialStep(); }], ['건너뛰기', () => endTutorial(true)]]);
       return;
     }
     t.target = s;
     // D-2: 카메라가 잘못 볼 수 있다는 안내는 지우는 동작을 배울 때 함께 한다
     const why = s === 'delete_one' ? '카메라가 잘못 봐서 다른 블록이 들어갈 수도 있어요. 괜찮아요! 그럴 땐 이렇게 지워요. ' : '';
-    showOverlay(s, LABEL[s], `${why}{g:${HOW[s]}} — {o:${HOLD[s] / 1000}초} 동안 그대로!`, [['건너뛰기(교사)', () => endTutorial(true)]], true, 'var(--gr)');
+    showOverlay(s, LABEL[s], `${why}{g:${HOW[s]}} — {o:${HOLD[s] / 1000}초} 동안 ${s === 'delete_all' ? '계속' : '그대로'}!`, [['건너뛰기', () => endTutorial(true)]], true, 'var(--gr)');
   }
   function tutorialSuccess() {
     const t = state.tutorial;
@@ -582,6 +642,7 @@
   }
   let camera = null;
   function setCamera(on) {
+    clearHint();
     if (on === state.cameraOn) return;
     state.cameraOn = on;
     el.camera.classList.toggle('on', !on);
@@ -618,6 +679,7 @@
     camCtx.restore();
 
     const now = performance.now();
+    pruneHints(now);
     let res = G.classify(results.poseLandmarks, state.tracker, now);
     if (DEBUG) {
       if (!DEBUG.el) { DEBUG.el = document.createElement('pre'); DEBUG.el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9999;margin:0;padding:8px 10px;background:rgba(0,0,0,.75);color:#fff;font:13px/1.45 monospace;border-radius:6px;pointer-events:none'; document.body.appendChild(DEBUG.el); }
@@ -639,11 +701,12 @@
       if (state.cand) clearCandidate(true, 'body');   // 몸이 사라지면 후보를 처음으로 (C-5)
       return;
     }
-    if (state.paused) { setBadge('입력을 멈췄어요', 'warn'); return; }
+    if (state.paused) { setBadge('입력을 멈췄어요', 'warn'); clearHint(); return; }
     if (res.status === 'lowvis') { setBadge('손이 잘 보이게 해 주세요', 'warn'); if (state.cand) clearCandidate(true, 'lowvis'); return; }
     setBadge(state.mode === 'running' ? '가는 중이에요' : '준비됐어요', 'ok');
     if (state.mode === 'calib') { calibFrame(results.poseLandmarks, now); return; }
     handleGesture(res, now);
+    updateHint(results.poseLandmarks, res, now);
   }
 
   // ── 시작 ────────────────────────────────────────────────────
