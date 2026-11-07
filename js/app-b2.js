@@ -3,7 +3,7 @@
 // 설계 근거: design-principles-2026-10-27.md (P1–P9, S1), design-decision-table-2026-10-27.md, screen-and-stages-2026-10-27.md
 (function () {
   const B2 = window.BCM_B2;
-  const APP_VERSION = '1.5.0';
+  const APP_VERSION = '1.5.1';
   const GESTURE_VERSION = 4;              // 동작 규칙이 바뀌면 올린다 (F-2)
   const HOLD = { forward: 2000, right: 2000, left: 2000, delete_one: 2000, run: 2000, delete_all: 3000 }; // C-2
   // 기능 시험용: 주소에 ?hold=1000|2000|3000 을 붙이면 전체 지우기를 뺀 유지 시간을 바꾼다 (계획서 5단계)
@@ -123,7 +123,6 @@
   function loadStage(idx) {
     clearTimers();
     state.stageIdx = Math.max(0, Math.min(STAGES.length - 1, idx));
-    try { localStorage.setItem('bcm_stage', String(state.stageIdx)); } catch (e) { }
     const st = stage();
     state.program = st.given.slice();
     state.added = 0; state.deleted = 0;
@@ -774,9 +773,7 @@
     bindButtons(); bindPress();
     el.maze.addEventListener('click', guessCell);
     renderControls();
-    let saved = 0;
-    try { saved = Number(localStorage.getItem('bcm_stage')) || 0; } catch (e) { }
-    state.stageIdx = Math.max(0, Math.min(STAGES.length - 1, saved));
+    state.stageIdx = 0;   // 앱을 열면 언제나 1단계부터 (2026-11-07)
     try { state.personal = JSON.parse(localStorage.getItem('bcm_personal')) || null; } catch (e) { }
     renderPersonal();
     log('session_start');
